@@ -70,18 +70,22 @@ Links | alpha(i-1) | a(i-1) | d(i) | theta(i)
 
 The Inverse Position Kinematics were addressed in this snippet from the [IK_debug.py]:
 
-	# Compensate for rotation discrepancy between DH parameters and Gazebo
-	R_corr = R_z(pi) * R_y(-pi/2)
-	R_rpy = R_z(y) * R_y(p) * R_x(r)
-	R_rpy = R_rpy.evalf(subs={r: roll, p: pitch, y: yaw})
-        
-	R0_6 = R_rpy * R_corr
+	            # Compensate for rotation discrepancy between DH parameters and Gazebo
+            Rot_rpy = Rot_rpy.evalf(subs={r: roll, p: pitch, y: yaw})
+            Rot_EE = Rot_rpy * Rot_corr
 
-	# Calculate joint angles using Geometric IK method
-	d_7 = dh[d7] # d7 from DH table
-	wx = px - (d_7 * R0_6[0,2])
-	wy = py - (d_7 * R0_6[1,2])
-	wz = pz - (d_7 * R0_6[2,2])
+            # Calculate joint angles using Geometric IK method
+            EE = Matrix([[px],
+                         [py],
+                         [pz]])
+
+            WC = EE - (0.303) * Rot_EE[:, 2]
+
+            #d_7 = dh[d7]
+            wx = WC[0] #px - (d_7 * Rot_EE[0,2])
+            wy = WC[1] #py - (d_7 * Rot_EE[1,2])
+            wz = WC[2] #pz - (d_7 * Rot_EE[2,2])
+
 The Inverse Orientation Kinematics were addressed by the analysis shown in the following figures:
 
 ![alt text][image3]
@@ -164,50 +168,25 @@ In order to obtain the transformation and rotation matrices, all of the differen
 					[                0,                 0,           0,             1]])
 		return(T)
 
-	def R_z(y):
+	def Get_R_z(y):
 		Rot_z = Matrix([[   cos(y),   -sin(y),         0],
 						[   sin(y),    cos(y),         0],
 						[        0,         0,         1]])
 		return(Rot_z)
 
-	def R_y(p):
+	def Get_R_y(p):
 		Rot_y = Matrix([[   cos(p),         0,    sin(p)],
 						[        0,         1,         0],
 						[  -sin(p),         0,    cos(p)]])
 	
 		return(Rot_y)
 
-	def R_x(r):
+	def Get_R_x(r):
 		Rot_x = Matrix([[        1,         0,         0],
 						[        0,    cos(r),   -sin(r)],
 						[        0,    sin(r),    cos(r)]])
 		return(Rot_x)
 
-def TF_Matrix(q, alpha, a, d):
-    T = Matrix([[           cos(q),           -sin(q),           0,             a],
-                [sin(q)*cos(alpha), cos(q)*cos(alpha), -sin(alpha), -sin(alpha)*d],
-                [sin(q)*sin(alpha), cos(q)*sin(alpha),  cos(alpha),  cos(alpha)*d],
-                [                0,                 0,           0,             1]])
-    return(T)
-
-def Get_R_z(y):
-    Rot_z = Matrix([[   cos(y),   -sin(y),         0],
-                    [   sin(y),    cos(y),         0],
-                    [        0,         0,         1]])
-    return(Rot_z)
-
-def Get_R_y(p):
-    Rot_y = Matrix([[   cos(p),         0,    sin(p)],
-                    [        0,         1,         0],
-                    [  -sin(p),         0,    cos(p)]])
-
-    return(Rot_y)
-
-def Get_R_x(r):
-    Rot_x = Matrix([[        1,         0,         0],
-                    [        0,    cos(r),   -sin(r)],
-                    [        0,    sin(r),    cos(r)]])
-    return(Rot_x)		
 		
 
 These allowed the code to easily create the many transformation and rotation matrices by calling the functions, while still being outside of the handle_calculate_IK function. Another advantage was to generate all the transformation and rotation matrices outside the forloop to prevent them being generated constantly which would decrease performance and effectiveness. Further, I tried to leverage the DH parameters as much as possible given that they were already created and stored.
@@ -225,6 +204,11 @@ Possibly, due to computer performance, it was rather slow still and while I trie
 
 2. Errors and considerations for future improvements.
 While debugging the code many times (long times due to slow performance), the code does not respond well when the planned path is relatively abnormal and navitates far away to grab a can or to move towards the bucket. Not sure why this happens but when normal trajectories are given the code performs well. Not sure if it'll require calibration or more statements to make it smarter and discern the correct path to take on that kind of situation. 
+
+
+![alt text][image7]
+
+###### **Figure**  **7** : Here it shows the error given when abnormal planned path is provided and it's unable to solve the inverse kinematics.
 
 After reading the Slack channel, I learned that simplify functions were removed to speed up the loop performance. Furthermore, keeping symbolic representations was unnecessary and equations containing symbols were evaluated numerically as early in the loop as possible to avoid carrying symbols forward due to all outputs of interest were numerical. This significantly reduced the inverse kinematic calculation times (from minutes to seconds). 
 
