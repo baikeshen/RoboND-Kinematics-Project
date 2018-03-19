@@ -212,10 +212,10 @@ While debugging the code many times (long times due to slow performance), the co
 
 After reading the Slack channel, I learned that simplify functions were removed to speed up the loop performance. Furthermore, keeping symbolic representations was unnecessary and equations containing symbols were evaluated numerically as early in the loop as possible to avoid carrying symbols forward due to all outputs of interest were numerical. This significantly reduced the inverse kinematic calculation times (from minutes to seconds). 
 
-Per Slack channel recommendations, a delay was placed in the trajectory_sampler.cpp file to allow use of the 'continue' function in rviz rather than manually clicking through 'next' at each step. Without the delay, the gripper would not fully close on the target prior to retraction and thus would repeatedly leave targets on the shelf.
 
 Future improvements:
-All the below could be investigated to improve pickup performance:
+
+All the belows could be investigated to improve pickup performance:
 
 1) there are extraneous symbols defined in the DH parameter dictionary which are not used in the inverse kinematics calculations and can be removed.
 
