@@ -18,10 +18,6 @@ from geometry_msgs.msg import Pose
 from mpmath import *
 from sympy import *
 
-#
-# Define Modified DH Transformation matrix
-#
-
 def TF_Matrix(q, alpha, a, d):
     T = Matrix([[           cos(q),           -sin(q),           0,             a],
                 [sin(q)*cos(alpha), cos(q)*cos(alpha), -sin(alpha), -sin(alpha)*d],
@@ -29,20 +25,20 @@ def TF_Matrix(q, alpha, a, d):
                 [                0,                 0,           0,             1]])
     return(T)
 
-def Get_R_z(y):
+def R_z(y):
     Rot_z = Matrix([[   cos(y),   -sin(y),         0],
                     [   sin(y),    cos(y),         0],
                     [        0,         0,         1]])
     return(Rot_z)
 
-def Get_R_y(p):
+def R_y(p):
     Rot_y = Matrix([[   cos(p),         0,    sin(p)],
                     [        0,         1,         0],
                     [  -sin(p),         0,    cos(p)]])
 
     return(Rot_y)
 
-def Get_R_x(r):
+def R_x(r):
     Rot_x = Matrix([[        1,         0,         0],
                     [        0,    cos(r),   -sin(r)],
                     [        0,    sin(r),    cos(r)]])
@@ -76,14 +72,14 @@ def handle_calculate_IK(req):
         T3_4 = TF_Matrix(q4, alpha3, a3, d4).subs(dh)
         T4_5 = TF_Matrix(q5, alpha4, a4, d5).subs(dh)
         T5_6 = TF_Matrix(q6, alpha5, a5, d6).subs(dh)
-        T6_EE = TF_Matrix(q7, alpha6, a6, d7).subs(dh)
+        T6_G = TF_Matrix(q7, alpha6, a6, d7).subs(dh)
 
         # Total Matrix
-        T0_EE = T0_1 * T1_2 * T2_3 * T3_4 * T4_5 * T5_6 * T6_EE
+        T0_G = T0_1 * T1_2 * T2_3 * T3_4 * T4_5 * T5_6 * T6_G
         
 		# Extract rotation matrices from the transformation matrices
-        Rot_corr = Get_R_z(pi) * Get_R_y(-pi/2)
-        Rot_rpy = Get_R_z(y) * Get_R_y(p) * Get_R_x(r)
+        R_corr = R_z(pi) * R_y(-pi/2)
+        R_rpy = R_z(y) * R_y(p) * R_x(r)
 
         # Initialize service response
         joint_trajectory_list = []
@@ -103,20 +99,14 @@ def handle_calculate_IK(req):
                     req.poses[x].orientation.z, req.poses[x].orientation.w])
 
             # Compensate for rotation discrepancy between DH parameters and Gazebo
-            Rot_rpy = Rot_rpy.evalf(subs={r: roll, p: pitch, y: yaw})
-            Rot_EE = Rot_rpy * Rot_corr
+            R_rpy = R_rpy.evalf(subs={r: roll, p: pitch, y: yaw})
+            R0_6 = R_rpy * R_corr
 
             # Calculate joint angles using Geometric IK method
-            EE = Matrix([[px],
-                         [py],
-                         [pz]])
-
-            WC = EE - (0.303) * Rot_EE[:, 2]
-
-            #d_7 = dh[d7]
-            wx = WC[0] #px - (d_7 * Rot_EE[0,2])
-            wy = WC[1] #py - (d_7 * Rot_EE[1,2])
-            wz = WC[2] #pz - (d_7 * Rot_EE[2,2])
+            d_7 = dh[d7]
+            wx = px - (d_7 * R0_6[0,2])
+            wy = py - (d_7 * R0_6[1,2])
+            wz = pz - (d_7 * R0_6[2,2])
 
             # Leveraging link distances and offsets from dh table
             a_3 = dh[a3]
@@ -129,18 +119,18 @@ def handle_calculate_IK(req):
             theta1 = atan2(wy, wx)
 
             # equations from the inverse kinematics example (Kinematics: lesson 2 - Section 19)
-            temp_r = sqrt(wx**2 + wy**2) - a_1 #wx -> xc & wy -> yc (interpreted from top view)
-            temp_s = wz - d_1 # wz -> zc
+            r = sqrt(wx**2 + wy**2) - a_1 #wx -> xc & wy -> yc (interpreted from top view)
+            S = wz - d_1 # wz -> zc
 
             s_a = sqrt(a_3**2 + d_4**2)
-            s_b = sqrt(temp_r**2 + temp_s**2)
+            s_b = sqrt(r**2 + S**2)
             s_c = a_2
 
             # Law of Cosines to obtain angles a and b (alpha and beta, respectively)
             alpha = acos((s_c**2 + s_b**2 - s_a**2) / (2*s_c*s_b))
             beta = acos((s_c**2 + s_a**2 - s_b**2) / (2*s_c*s_a))
 
-            theta2 = (pi/2) - alpha - atan2(temp_s,temp_r)
+            theta2 = (pi/2) - alpha - atan2(S,r)
             theta3 = (pi/2) - beta - atan2(-a_3,d_4)
 
             #### Finding theta 4-6
@@ -150,7 +140,7 @@ def handle_calculate_IK(req):
             R0_3 = R0_3[0:3, 0:3]
             R0_3 = R0_3.evalf(subs={q1: theta1, q2: theta2, q3: theta3})
 
-            R3_6 = R0_3.inv("ADJ") * Rot_EE # using ADJ inverse method to reduce EE position error to 0
+            R3_6 = R0_3.inv("ADJ") * R0_6 # noticed ADJ inverse method reduced EE position error to 0 on IK_debug.py
 			
             # R3_6 Matrix Values
             r13 = R3_6[0,2]
