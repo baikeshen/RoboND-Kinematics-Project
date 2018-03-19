@@ -183,7 +183,31 @@ In order to obtain the transformation and rotation matrices, all of the differen
 						[        0,    sin(r),    cos(r)]])
 		return(Rot_x)
 
-		
+def TF_Matrix(q, alpha, a, d):
+    T = Matrix([[           cos(q),           -sin(q),           0,             a],
+                [sin(q)*cos(alpha), cos(q)*cos(alpha), -sin(alpha), -sin(alpha)*d],
+                [sin(q)*sin(alpha), cos(q)*sin(alpha),  cos(alpha),  cos(alpha)*d],
+                [                0,                 0,           0,             1]])
+    return(T)
+
+def Get_R_z(y):
+    Rot_z = Matrix([[   cos(y),   -sin(y),         0],
+                    [   sin(y),    cos(y),         0],
+                    [        0,         0,         1]])
+    return(Rot_z)
+
+def Get_R_y(p):
+    Rot_y = Matrix([[   cos(p),         0,    sin(p)],
+                    [        0,         1,         0],
+                    [  -sin(p),         0,    cos(p)]])
+
+    return(Rot_y)
+
+def Get_R_x(r):
+    Rot_x = Matrix([[        1,         0,         0],
+                    [        0,    cos(r),   -sin(r)],
+                    [        0,    sin(r),    cos(r)]])
+    return(Rot_x)		
 		
 
 These allowed the code to easily create the many transformation and rotation matrices by calling the functions, while still being outside of the handle_calculate_IK function. Another advantage was to generate all the transformation and rotation matrices outside the forloop to prevent them being generated constantly which would decrease performance and effectiveness. Further, I tried to leverage the DH parameters as much as possible given that they were already created and stored.
@@ -206,5 +230,12 @@ After reading the Slack channel, I learned that simplify functions were removed 
 
 Per Slack channel recommendations, a delay was placed in the trajectory_sampler.cpp file to allow use of the 'continue' function in rviz rather than manually clicking through 'next' at each step. Without the delay, the gripper would not fully close on the target prior to retraction and thus would repeatedly leave targets on the shelf.
 
-Future improvements: there are extraneous symbols defined in the DH parameter dictionary which are not used in the inverse kinematics calculations and can be removed, but for ease of reading and code review, the complete table was included. A minor initialization speed improvement would be to hardcode the T0_3 and R_direct matrices rather than recalculating them each time IK_server.py is run. Occasionally, the gripper would appear to be in the correct location in front of the target at the end of the IK movement, but the following automatic "reach" step would back it out of position, execute a waving motion, and knock over the target rather than reaching forward directly for it. This could be investigated to improve pickup performance.
+Future improvements:
+All the below could be investigated to improve pickup performance:
+
+1) there are extraneous symbols defined in the DH parameter dictionary which are not used in the inverse kinematics calculations and can be removed.
+
+2) A minor initialization speed improvement would be to hardcode the calculated maxtrices than recalculating them each time IK_server.py is run. 
+
+3) Occasionally, the gripper would appear to be in the correct location in front of the target at the end of the IK movement, but the following automatic "reach" step would back it out of position, execute a waving motion, and knock over the target rather than reaching forward directly for it. 
 
