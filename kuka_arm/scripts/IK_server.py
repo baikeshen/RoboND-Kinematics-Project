@@ -8,6 +8,8 @@
 # All Rights Reserved.
 
 # Author: Harsh Pandya
+# Modified by: Baike Shen
+# Vacouver Mar-18-2018
 
 # import modules
 import rospy
