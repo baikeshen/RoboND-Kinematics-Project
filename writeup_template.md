@@ -34,28 +34,103 @@ You're reading it!
 ### Kinematic Analysis
 #### 1. Run the forward_kinematics demo and evaluate the kr210.urdf.xacro file to perform kinematic analysis of Kuka KR210 robot and derive its DH parameters.
 
-Here is an example of how to include an image in your writeup.
+The forward_kinematics.launch file was used to generate the kinematic sketch (Figure 2) with assistance from Lesson 2 and Project Module.
 
 ![alt text][image1]
 
 #### 2. Using the DH parameter table you derived earlier, create individual transformation matrices about each joint. In addition, also generate a generalized homogeneous transform between base_link and gripper_link using only end-effector(gripper) pose.
 
-Links | alpha(i-1) | a(i-1) | d(i-1) | theta(i)
---- | --- | --- | --- | ---
-0->1 | 0 | 0 | L1 | qi
-1->2 | - pi/2 | L2 | 0 | -pi/2 + q2
-2->3 | 0 | 0 | 0 | 0
-3->4 |  0 | 0 | 0 | 0
-4->5 | 0 | 0 | 0 | 0
-5->6 | 0 | 0 | 0 | 0
-6->EE | 0 | 0 | 0 | 0
+Obtained the DH Parameters performing a kinematic sketch (Figure 2) and analysis like the one explained in Lesson 2 and later in the Project Module.
+
+Using the kr210.urdf.xacro file the below DH Parameter table was generated. Values were obtained by looking for the joints section in the xacro file; there using the sketch from Figure 2 distances from joint to joint were obtained and used as a(i-1) and d(i) values repective to their axis as provided in the Figure. Some values, like d(EE) might need to obtained by the sum of multiple joint xyz values, in this case, the x value of joint 6 and the x value of the gripper joint.
+
+Links	alpha(i-1)	a(i-1)	d(i)	theta(i)
+0->1	0	0	0.75	q1
+1->2	- pi/2	0.35	0	-pi/2 + q2
+2->3	0	1.25	0	q3
+3->4	- pi/2	- 0.054	1.5	q4
+4->5	pi/2	0	0	q5
+5->6	- pi/2	0	0	q6
+6->EE	0	0	0.303	0
+
 
 
 #### 3. Decouple Inverse Kinematics problem into Inverse Position Kinematics and inverse Orientation Kinematics; doing so derive the equations to calculate all individual joint angles.
 
-And here's where you can draw out and show your math for the derivation of your theta angles. 
+The Inverse Position Kinematics were addressed in this snippet from the [IK_debug.py]:
+
+	# Compensate for rotation discrepancy between DH parameters and Gazebo
+	R_corr = R_z(pi) * R_y(-pi/2)
+	R_rpy = R_z(y) * R_y(p) * R_x(r)
+	R_rpy = R_rpy.evalf(subs={r: roll, p: pitch, y: yaw})
+        
+	R0_6 = R_rpy * R_corr
+
+	# Calculate joint angles using Geometric IK method
+	d_7 = dh[d7] # d7 from DH table
+	wx = px - (d_7 * R0_6[0,2])
+	wy = py - (d_7 * R0_6[1,2])
+	wz = pz - (d_7 * R0_6[2,2])
+The Inverse Orientation Kinematics were addressed by the analysis shown in the following figures:
+
+
 
 ![alt text][image2]
+
+
+The following code snippet shows the way the above equations were addressed to obtain theta 1-6.
+
+	# Leveraging link distances and offsets from dh table
+	a_3 = dh[a3]
+	d_4 = dh[d4]
+	d_1 = dh[d1]
+	a_1 = dh[a1]
+	a_2 = dh[a2]
+
+	#### Finding theta 1-3
+	theta1 = atan2(wy, wx)
+
+	# equations from the inverse kinematics example (Kinematics: lesson 2 - Section 19)
+	r = sqrt(wx**2 + wy**2) - a_1 #wx -> xc & wy -> yc (interpreted from top view)
+	S = wz - d_1 # wz -> zc
+
+	s_a = sqrt(a_3**2 + d_4**2)
+	s_b = sqrt(r**2 + S**2)
+	s_c = a_2
+
+	# Law of Cosines to obtain angles a and b (alpha and beta, respectively)
+	alpha = acos((s_c**2 + s_b**2 - s_a**2) / (2*s_c*s_b))
+	beta = acos((s_c**2 + s_a**2 - s_b**2) / (2*s_c*s_a))
+
+	theta2 = (pi/2) - alpha - atan2(S,r)
+	theta3 = (pi/2) - beta - atan2(-a_3,d_4)
+
+	#### Finding theta 4-6
+
+	# Evaluating rotational matrix extracted from original transformation matrices using obtained theta_i
+	R0_3 = T0_1 * T1_2 * T2_3
+	R0_3 = R0_3[0:3, 0:3]
+	R0_3 = R0_3.evalf(subs={q1: theta1, q2: theta2, q3: theta3})
+
+	R3_6 = R0_3.inv("ADJ") * R0_6 # noticed ADJ inverse method reduced EE position error to 0 on IK_debug.py
+	
+	# R3_6 Matrix Values
+	r13 = R3_6[0,2]
+	r33 = R3_6[2,2]
+	r23 = R3_6[1,2]
+	r21 = R3_6[1,0]
+	r22 = R3_6[1,1]
+	r12 = R3_6[0,1]
+	r32 = R3_6[2,1]
+
+	theta4 = atan2(r33, -r13)
+	theta5 = atan2(sqrt(r13**2 + r33**2), r23)
+	theta6 = atan2(-r22, r21)
+
+The matrix displayed in Figure 4 further demonstrate the way rotational matrix values were extracted.
+
+
+
 
 ### Project Implementation
 
@@ -64,8 +139,55 @@ And here's where you can draw out and show your math for the derivation of your 
 
 Here I'll talk about the code, what techniques I used, what worked and why, where the implementation might fail and how I might improve it if I were going to pursue this project further.  
 
+In order to obtain the transformation and rotation matrices, I decided to utilize functions to generate all of the different matrices. This is shown in the [IK_server.py] snippet below:
+
+def TF_Matrix(q, alpha, a, d):
+	T = Matrix([[           cos(q),           -sin(q),           0,             a],
+				[sin(q)*cos(alpha), cos(q)*cos(alpha), -sin(alpha), -sin(alpha)*d],
+				[sin(q)*sin(alpha), cos(q)*sin(alpha),  cos(alpha),  cos(alpha)*d],
+				[                0,                 0,           0,             1]])
+	return(T)
+
+def R_z(y):
+	Rot_z = Matrix([[   cos(y),   -sin(y),         0],
+					[   sin(y),    cos(y),         0],
+					[        0,         0,         1]])
+	return(Rot_z)
+
+def R_y(p):
+	Rot_y = Matrix([[   cos(p),         0,    sin(p)],
+					[        0,         1,         0],
+					[  -sin(p),         0,    cos(p)]])
+
+	return(Rot_y)
+
+def R_x(r):
+	Rot_x = Matrix([[        1,         0,         0],
+					[        0,    cos(r),   -sin(r)],
+					[        0,    sin(r),    cos(r)]])
+	return(Rot_x)
+
+
+These allowed the code to easily create the many transformation and rotation matrices by calling the functions, while still being outside of the handle_calculate_IK function. Another advantage was to generate all the transformation and rotation matrices outside the forloop to prevent them being generated constantly which would decrease performance and effectiveness. Further, I tried to leverage the DH parameters as much as possible given that they were already created and stored.
+
+Possibly, due to computer performance, it was rather slow still and while I tried implementing a class structure to the code, I couldn't manage to get it to work.
+
 
 And just for fun, another example image:
 ![alt text][image3]
 
+
+2. Errors and considerations for future improvements.
+While debugging the code many times (long times due to slow performance), I noticed that the code does not respond well when the planned path is relatively abnormal and navitates far away to grab a can or to move towards the bucket. Not sure why this happens but when normal trajectories are given the code performs well. Not sure if it'll require calibration or more statements to make it smarter and discern the correct path to take on that kind of situation. This can be seen in the following Figure:
+
+
+ ydai08      Another Comments:
+
+The same structure for deriving transforms in FK.py was used in IK_server.py. To avoid repetition and typos, a generic DH transform function was created so individual joint symbol sets could be substituted in for evaluation. The symbolic transform matrices do not change from point to point, so these were removed from the loop and calculated only once prior to receiving gripper pose input. DH transform matrices for joints 3 to gripper were not explicitly needed for calculating the inverse kinematics since the equations dictating thetas 4-6 were derived from above, so these matrix calculations were removed. Similarly, the full direct homogeneous transform from base link to gripper using end effector pose was reduced to only the rotation matrix for purposes of deriving thetas 4-6.
+
+Simplify functions were removed to speed up the loop performance. Because all outputs of interest were numerical, keeping symbolic representations was unnecessary and equations containing symbols were evaluated numerically as early in the loop as possible to avoid carrying symbols forward. This significantly reduced the inverse kinematic calculation times (from minutes to seconds). While substituting numerical values early can potentially amplify compounding rounding errors, the current implementation still passes the 8/10 pick and place cycle requirement, so the speed improvement is well worth the minor loss in accuracy.
+
+Per Slack channel recommendations, a delay was placed in the trajectory_sampler.cpp file to allow use of the 'continue' function in rviz rather than manually clicking through 'next' at each step. Without the delay, the gripper would not fully close on the target prior to retraction and thus would repeatedly leave targets on the shelf.
+
+Future improvements: there are extraneous symbols defined in the DH parameter dictionary which are not used in the inverse kinematics calculations and can be removed, but for ease of reading and code review, the complete table was included. A minor initialization speed improvement would be to hardcode the T0_3 and R_direct matrices rather than recalculating them each time IK_server.py is run. Occasionally, the gripper would appear to be in the correct location in front of the target at the end of the IK movement, but the following automatic "reach" step would back it out of position, execute a waving motion, and knock over the target rather than reaching forward directly for it. This could be investigated to improve pickup performance.
 
