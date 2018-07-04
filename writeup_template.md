@@ -82,8 +82,11 @@ def TF_Mat(alpha, a, d, q):
                  [ sin(q)*sin(alpha), cos(q)*sin(alpha),  cos(alpha),  cos(alpha)*d],
                  [                 0,                 0,           0,             1]])
     return TF
-```
-Then using the following code to substitute the DH parameters into the transformation matrix: 
+    
+```Individual transform matrices about each joint using the DH table are as following:
+
+
+<p align="center"> <img src="./misc_images/matrices.png"> </p>
 
 #### 3. Decouple Inverse Kinematics problem into Inverse Position Kinematics and inverse Orientation Kinematics; doing so derive the equations to calculate all individual joint angles.
 
