@@ -247,3 +247,8 @@ All the belows could be investigated to improve pickup performance:
 
 3) Occasionally, the gripper would appear to be in the correct location in front of the target at the end of the IK movement, but the following automatic "reach" step would back it out of position, execute a waving motion, and knock over the target rather than reaching forward directly for it. 
 
+### Recorded Test video
+
+The full testing video after implementing all above mentioned steps is uploaded on YouTube on the following link:
+
+[![test video](http://img.youtube.com/vi/PVhC8Xx4VF0/0.jpg)](http://www.youtube.com/watch?v=PVhC8Xx4VF0)
