@@ -83,7 +83,9 @@ def TF_Mat(alpha, a, d, q):
                  [                 0,                 0,           0,             1]])
     return TF
     
-```Individual transform matrices about each joint using the DH table are as following:
+```
+
+Individual transform matrices about each joint using the DH table are as following:
 
 
 <p align="center"> <img src="./misc_images/matrices.png"> </p>
