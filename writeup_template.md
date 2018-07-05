@@ -251,6 +251,6 @@ All the belows could be investigated to improve pickup performance:
 
 ### Recorded Test video
 
-The full testing video after implementing all above mentioned steps is uploaded on YouTube on the following link:
+The full testing video is uploaded on YouTube on the following link:
 
-[![test video](http://img.youtube.com/vi/PVhC8Xx4VF0/0.jpg)](http://www.youtube.com/watch?v=PVhC8Xx4VF0)
+[![test video](http://img.youtu.be/Uhvkwbv5Klk/0.jpg)](https://youtu.be/Uhvkwbv5Klk)
